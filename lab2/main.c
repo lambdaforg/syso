@@ -5,53 +5,93 @@
 
 //TO do generating by operating functions //
 
-// generating file by normally functions avalaible in C 
+// wyjebać to gówno
 char randBorder(int from, int to)
 {
 	return (char)(from + (rand()%(to-from+1)));
 }
 void generate(char *file, int record, int lengthByte){
-	printf("generate");
+	printf("generate %d", lengthByte);
 	if(record !=0 && lengthByte != 0)
 	{
 			FILE *fileG = fopen(file,"w+");
 			int lowLimit = 48;
 			int upLimit = 57;
-			char text[1];
+			char c;
 			if(fileG)
 			{
 				for(int i =0;i<record;i++)
 				{
 					for(int j =0;j<lengthByte;j++)
 					{
-					text[0] = randBorder(lowLimit,upLimit);
-					fputs(text,fileG);
+						//dopisać to gówno
+					c = "AaBbCcDdEeFfGg0123456789"[rand() % 24];
+					fputc(c,fileG);
 			
 					}
-					fputs("\n",fileG);
+					fputc('\n',fileG);
 				}
 			fclose(fileG);
 			}
 	}	
 }
+void setPosition(FILE *file, int i, fpos_t currentRow){
+	 fsetpos(file, &currentRow);
+	 fseek (file , i, SEEK_CUR ); 
+}
 void sortLib(char *file, int record, int lengthByte){
 	printf("sort Lib");
 	FILE *fileG = fopen(file,"r+");
-	char tempValue[2];
-	fpos_t *pastPos; 
-	fpos_t *nextPos;
-	fread(tempValue, 1, 1, fileG);
-	//int fsetpos(fileG, fpos_t* pos);
-	//int fgetpos(fileG, position);
-	printf("%s", tempValue);
-	fgetpos(fileG, &pastPos);
-	fread(tempValue, 1, 1, fileG);
-	printf("%s", tempValue);
-	
+	char tempValue[1]; 
+	fpos_t currentRow; 
+	// DOROBIĆ IFA ŻE JESLI NIE PODA DOBREGO SIZA TO SZUKA KOncA LINI I NASTEPNA LINIE DAJE!!			
+	for(int e = 0; e < record ; e++)
+	{
+		if(e == 0){
+		  fseek (fileG , 0, SEEK_SET); 
+		}
+		fgetpos(fileG, &currentRow);
+		char x;
+		int i = 0;
+		for(int j = lengthByte - 2; j >= 0; j--)
+	  {
+		setPosition(fileG, j, currentRow);
+		fread( tempValue, sizeof(char), 1, fileG );  
+		x = tempValue[0];
+		i = j + 1;
+		setPosition(fileG, i, currentRow);
+		fread( tempValue, sizeof(char), 1, fileG );  		
+		while((i < lengthByte) && (x > tempValue[0]))
+		{
+		 setPosition(fileG, i-1, currentRow);		
+		  fwrite (tempValue , sizeof(char), 1, fileG);	
+		  //d[i - 1] = d[i];
+		  i++;
+		  setPosition(fileG, i, currentRow);
+		  fread( tempValue, sizeof(char), 1, fileG );     
+		}
+		tempValue[0] = x;
+        setPosition(fileG, i-1, currentRow);		
+		fwrite (tempValue , sizeof(char), 1, fileG);	
+			
+	}
+		  setPosition(fileG, lengthByte+2, currentRow);
+}
 	fclose(fileG);
 }
 void copyLib(char *file,char *fileTo,int record, int lengthByte){
 	printf("copy lib");
+	char *arr = malloc(sizeof(char) * lengthByte);
+	for(int i =0; i< record; i++){
+		
+		//if(fread( tempValue, sizeof(char), 1, fileG ))
+	//	{
+			
+		//}
+		//if(fwrite (tempValue , sizeof(char), 1, fileG)){
+//
+	//	}			
+	}
 }
 void sortSys(char *file, int record, int lengthByte){
 	printf("sort sys");
