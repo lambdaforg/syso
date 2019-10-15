@@ -25,11 +25,12 @@ void generate(char *file, int record, int lengthByte){
 					for(int j =0;j<lengthByte;j++)
 					{
 						//dopisać to gówno
-					c = "AaBbCcDdEeFfGg0123456789"[rand() % 24];
-					fputc(c,fileG);
+						c = "AaBbCcDdEeFfGg0123456789"[rand() % 24];
+						fputc(c,fileG);
 			
 					}
 					fputc('\n',fileG);
+					
 				}
 			fclose(fileG);
 			}
@@ -79,18 +80,57 @@ void sortLib(char *file, int record, int lengthByte){
 }
 	fclose(fileG);
 }
+fpos_t findNextRow(FILE *file, int row){
+	/**niby działa **/
+	fseek (file , 0, SEEK_SET);
+	char arr[1];
+	fpos_t currentRow;
+	int i = 0;
+	while(1){
+		fread( arr, sizeof(char), 1, file );
+		if(arr[0] == '\n' && i==row)
+		{
+			break;	
+		}else if(arr[0] == '\n'){
+			i++;
+		}
+	}
+	fgetpos(file, &currentRow);
+	return currentRow;
+}
 void copyLib(char *file,char *fileTo,int record, int lengthByte){
+	/** Kopiowane do pliku B, uwzglednione z tym że mozna podać mniej bytów i tak skopiuje dobrze i zrobi nowa linie **/
+	/** problem może być jak ktoś przekroczy byte **/
+	/** ZROBIĆ POZNIEJ CHECKA NA BYTE > ROWBYTES **/
+	
 	printf("copy lib");
 	char *arr = malloc(sizeof(char) * lengthByte);
+	char temp[1];
+	
+	FILE *oldFile = fopen(file,"r");
+	FILE *newFile = fopen(fileTo,"w+");
+	
+	fpos_t currentRow;
+	fseek (oldFile , 0, SEEK_SET); 
+	fgetpos(oldFile, &currentRow);
+	
 	for(int i =0; i< record; i++){
-		
-		//if(fread( tempValue, sizeof(char), 1, fileG ))
-	//	{
-			
-		//}
-		//if(fwrite (tempValue , sizeof(char), 1, fileG)){
-//
-	//	}			
+		fsetpos(oldFile, &currentRow);
+		fread( arr, sizeof(char), lengthByte, oldFile );
+		fwrite (arr , sizeof(char), lengthByte, newFile);	
+			fpos_t currentRow2;
+			fgetpos(oldFile, &currentRow2);
+			fread( temp, sizeof(char), 1, oldFile );
+		if(temp[0] != '\n'){
+			currentRow = findNextRow(oldFile, i);
+			temp[0] = '\n';
+			fwrite (temp , sizeof(char), 1, newFile);
+		}
+		else{
+			//nowa linia
+			fwrite (temp , sizeof(char), 1, newFile);	
+			fgetpos(oldFile, &currentRow);
+		}
 	}
 }
 void sortSys(char *file, int record, int lengthByte){
