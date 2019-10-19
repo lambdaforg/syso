@@ -33,49 +33,90 @@ void generate(char *file, int rows, int lengthByte){
 			}
 	}	
 }
-void setPosition(FILE *file, int i, fpos_t currentRow){
-	 fsetpos(file, &currentRow);
-	 fseek (file , i, SEEK_CUR ); 
+// zrobic cos fajnego że jęśli 1 to do sys jeśli 2 to do lib auu
+void setPositionT(FILE *file, int i, int lenghtByte,char method){
+            //nextRow = i * (lenghtbye +2)
+        // fsetpos(file, &currentRow);
+
+         fseek (file , i*(lenghtByte+2), SEEK_SET );
+
+
 }
+void setPositionC(int fileG, int i, int lenghtByte,char method){
+            //nextRow = i * (lenghtbye +2)
+        // fsetpos(file, &currentRow);
+
+         lseek(fileG, i*(lenghtByte+2), SEEK_SET );
+
+}
+int lenghtFile(FILE *file)
+{
+    fseek (file, 0, SEEK_SET );
+    char array[1];
+    array[0] = ' ';
+    int result = 0;
+    while(array[0] != '\n')
+    {
+
+        fread( array, sizeof(char), 1, file );
+        result++;
+    }
+    fseek (file, 0, SEEK_SET );
+    return result;
+
+}
+/** ZMIENIĆ POZNIEJ NA COS LADNIEJSZEGO **/
+void initArray(char *t, int size)
+{
+    for(int i = 0;i<size;i++)
+    {
+        t[i] = ' ';
+    }
+}
+/** OGOLNie DziALA TO TAK ŻE NAWET JAK POdAMY NP 3 2 A MAMY 3 3 TO I TAK DOBRZE POSORTUJE -> WYBRaLEM OPCJE ŻE POSORTUJE TOW TAKI SPOSOB ZE SORTUJE WYBRANE A RESZTA NIE OBCHODZI ALE JEST **/
+/** czyli mozna powiedziec ze jest jakies zabezpiczenie jak przekroczy ktos lengthbyte albo wpisze za malo, na rowy to pierdole **/
 void sortLib(char *file, int rows, int lengthByte){
-	printf("sort Lib");
-	FILE *fileG = fopen(file,"r+");
-	char tempValue[1]; 
-	fpos_t currentRow; 
-	// DOROBIĆ IFA ŻE JESLI NIE PODA DOBREGO SIZA TO SZUKA KOncA LINI I NASTEPNA LINIE DAJE!!			
-	for(int e = 0; e < rows ; e++)
-	{
-		if(e == 0){
-		  fseek (fileG , 0, SEEK_SET); 
-		}
-		fgetpos(fileG, &currentRow);
-		char x;
-		int i = 0;
-		for(int j = lengthByte - 2; j >= 0; j--)
-	  {
-		setPosition(fileG, j, currentRow);
-		fread( tempValue, sizeof(char), 1, fileG );  
-		x = tempValue[0];
-		i = j + 1;
-		setPosition(fileG, i, currentRow);
-		fread( tempValue, sizeof(char), 1, fileG );  		
-		while((i < lengthByte) && (x > tempValue[0]))
-		{
-		 setPosition(fileG, i-1, currentRow);		
-		  fwrite (tempValue , sizeof(char), 1, fileG);	
-		  i++;
-		  setPosition(fileG, i, currentRow);
-		  fread( tempValue, sizeof(char), 1, fileG );     
-		}
-		tempValue[0] = x;
-        setPosition(fileG, i-1, currentRow);		
-		fwrite (tempValue , sizeof(char), 1, fileG);	
-			
-	}
-		  setPosition(fileG, lengthByte+2, currentRow);
+        printf("sort Lib");
+        FILE *fileG = fopen(file,"r+");
+        int lengthByteT = lengthByte;
+        if(lenghtFile(fileG) != lengthByte+1){
+             lengthByteT = lenghtFile(fileG) - 1;
+        }
+        char *tempRecord = malloc(sizeof(char) * lengthByte );
+        char *tempRecord2 = malloc(sizeof(char) * lengthByte );
+        fseek (fileG , 0, SEEK_SET);
+        fpos_t currentRow;
+        fgetpos(fileG, &currentRow);
+        int i = 0;
+        initArray(tempRecord, lengthByte );
+        initArray(tempRecord2, lengthByte );
+
+
+        for(int j = rows - 2; j >= 0; j--)
+        {
+             setPositionT(fileG, j, lengthByteT,'l');
+        fread( tempRecord2, sizeof(char), lengthByte, fileG );
+        i = j + 1;
+              setPositionT(fileG, i, lengthByteT,'l');
+        fread( tempRecord, sizeof(char), lengthByte, fileG );
+        while((i < rows) && (strcmp(tempRecord2 , tempRecord) > 0))
+        {
+              setPositionT(fileG, i-1,lengthByteT, 'l');
+              fwrite (tempRecord , sizeof(char), lengthByte, fileG);
+          i++;
+             setPositionT(fileG, i,lengthByteT, 'l');
+             fread( tempRecord, sizeof(char), lengthByte, fileG );
+        }
+        strncpy(tempRecord, tempRecord2, lengthByte);
+             setPositionT(fileG, i-1,lengthByteT, 'l');
+             fwrite (tempRecord , sizeof(char), lengthByte, fileG);
+        }
+
+        fclose(fileG);
+        free(tempRecord);
+        free(tempRecord2);
 }
-	fclose(fileG);
-}
+
 fpos_t findNextRow(FILE *file, int row){
 	/**niby działa **/
 	fseek (file , 0, SEEK_SET);
@@ -133,57 +174,61 @@ void copyLib(char *file,char *fileTo,int record, int lengthByte){
 	fclose(newFile);
 	free(arr);
 }
+int lenghtFileSys(int file)
+{
+    lseek(file, 0, SEEK_SET);
+    char array[1];
+    array[0] = ' ';
+    int result = 0;
+    while(array[0] != '\n')
+    {
+        read(file, array, 1);
+        result++;
+    }
+    lseek(file, 0, SEEK_SET);
+    return result;
+
+}
+/** Niby działa jak tamto **/
 void sortSys(char *file, int rows, int lengthByte){
 	 printf("sort sys");
-     int fileG = open(file, O_RDWR);
-	 char tempValue[1]; 
-	 int ofset = 0;
-	for(int e = 0; e < rows ; e++)
-	{
-		ofset = e*(lengthByte+2);
-		lseek(fileG, ofset, SEEK_SET);
-		char x;
-		int i = 0;
-		for(int j = lengthByte - 2; j >= 0; j--)
-	  {
-		//setPosition(fileG, j, currentRow);
-		//fread( tempValue, sizeof(char), 1, fileG );
-			lseek(fileG, ofset+j, SEEK_SET );
-			read(fileG, tempValue, 1);
-		x = tempValue[0];
-		i = j + 1;
-			lseek(fileG, ofset+i, SEEK_SET );
-			read(fileG, tempValue, 1);
-		//setPosition(fileG, i, currentRow);
-		//fread( tempValue, sizeof(char), 1, fileG );  	
-			//read(file, tempValue, 1);
-		while((i < lengthByte) && (x > tempValue[0]))
-		{
-		 //setPosition(fileG, i-1, currentRow);
-		 // fwrite (tempValue , sizeof(char), 1, fileG);	
-				lseek(fileG, ofset+i-1, SEEK_SET );
-				write(fileG, tempValue, 1);
-		  i++;
-		 // setPosition(fileG, i, currentRow);
-		  //fread( tempValue, sizeof(char), 1, fileG );  
-				lseek(fileG, ofset+i, SEEK_SET );
-				read(fileG, tempValue, 1);
-		}
-		tempValue[0] = x;
-       // setPosition(fileG, i-1, currentRow);		
-		//fwrite (tempValue , sizeof(char), 1, fileG);	
-				lseek(fileG, ofset+i-1, SEEK_SET );
-				write(fileG, tempValue, 1);
-			
-	}
-		  //setPosition(fileG, lengthByte+2, currentRow);
+         int fileG = open(file, O_RDWR);
+         int lengthByteT = lengthByte;
+         if(lenghtFileSys(fileG) != lengthByte+1){
+              lengthByteT = lenghtFileSys(fileG) - 1;
+         }
+         char *tempRecord = malloc(sizeof(char) * lengthByte );
+         char *tempRecord2 = malloc(sizeof(char) * lengthByte );
+         int i = 0;
+         initArray(tempRecord, lengthByte );
+         initArray(tempRecord2, lengthByte );
+
+
+                for(int j = rows - 2; j >= 0; j--)
+                {
+                     setPositionC(fileG, j, lengthByteT,'s');
+                     read(fileG, tempRecord2, lengthByte);
+                i = j + 1;
+                      setPositionC(fileG, i, lengthByteT,'s');
+                      read(fileG, tempRecord, lengthByte);
+                while((i < rows) && (strcmp(tempRecord2 , tempRecord) > 0))
+                {
+                      setPositionC(fileG, i-1,lengthByteT, 's');
+                      write(fileG, tempRecord, lengthByte);
+                  i++;
+                     setPositionC(fileG, i,lengthByteT, 's');
+                     read(fileG, tempRecord, lengthByte);
+                }
+                     strncpy(tempRecord, tempRecord2, lengthByte);
+                     setPositionC(fileG, i-1,lengthByteT, 's');
+                     write(fileG, tempRecord, lengthByte);
+                }
+
+                close(fileG);
+                free(tempRecord);
+                free(tempRecord2);
 }
-	
-	
-	
-	
-	close(fileG);
-}
+/** tu sie narazie nic nie poprawialem, mysle ze nigdy nie bede tutaj juz poprawial ;)**/
 void copySys(char *file,char *fileTo,int rows, int lengthByte){
 	printf("copy sys");
 	
@@ -216,7 +261,7 @@ int main(int argc,char* argv[])
 		if(strcmp(argv[1], "generate") == 0 && argc == 5)
 		{
 		  generate(argv[2],atoi(argv[3]),atoi(argv[4]));
-		}else if(strcmp(argv[1], "sort") == 0 && argc == 6){
+                }else if(strcmp(argv[1], "sort") == 0 && argc == 6){
 			if(strcmp(argv[5], "sys") == 0){
 				sortSys(argv[2],atoi(argv[3]),atoi(argv[4]));
 			}
