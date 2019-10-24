@@ -12,8 +12,6 @@ void generate(char *file, int rows, int lengthByte){
 	if(rows !=0 && lengthByte != 0)
 	{
 			FILE *fileG = fopen(file,"w+");
-			int lowLimit = 48;
-			int upLimit = 57;
 			char c;
 			if(fileG)
 			{
@@ -21,8 +19,8 @@ void generate(char *file, int rows, int lengthByte){
 				{
 					for(int j =0;j<lengthByte;j++)
 					{
-						//dopisać to gówno
-						c = "AaBbCcDdEeFfGg0123456789"[rand() % 24];
+					
+						c = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpRrSsTtUuWwXxYyZz0123456789"[rand() % 24];
 						fputc(c,fileG);
 			
 					}
@@ -33,39 +31,12 @@ void generate(char *file, int rows, int lengthByte){
 			}
 	}	
 }
-// zrobic cos fajnego że jęśli 1 to do sys jeśli 2 to do lib auu
 void setPositionT(FILE *file, int i, int lenghtByte,char method){
-            //nextRow = i * (lenghtbye +2)
-        // fsetpos(file, &currentRow);
-
-         fseek (file , i*(lenghtByte+2), SEEK_SET );
-
-
+         fseek (file , i*(lenghtByte+1), SEEK_SET );
 }
 void setPositionC(int fileG, int i, int lenghtByte,char method){
-            //nextRow = i * (lenghtbye +2)
-        // fsetpos(file, &currentRow);
-
-         lseek(fileG, i*(lenghtByte+2), SEEK_SET );
-
+         lseek(fileG, i*(lenghtByte+1), SEEK_SET );
 }
-int lenghtFile(FILE *file)
-{
-    fseek (file, 0, SEEK_SET );
-    char array[1];
-    array[0] = ' ';
-    int result = 0;
-    while(array[0] != '\n')
-    {
-
-        fread( array, sizeof(char), 1, file );
-        result++;
-    }
-    fseek (file, 0, SEEK_SET );
-    return result;
-
-}
-/** ZMIENIĆ POZNIEJ NA COS LADNIEJSZEGO **/
 void initArray(char *t, int size)
 {
     for(int i = 0;i<size;i++)
@@ -73,14 +44,29 @@ void initArray(char *t, int size)
         t[i] = ' ';
     }
 }
-/** OGOLNie DziALA TO TAK ŻE NAWET JAK POdAMY NP 3 2 A MAMY 3 3 TO I TAK DOBRZE POSORTUJE -> WYBRaLEM OPCJE ŻE POSORTUJE TOW TAKI SPOSOB ZE SORTUJE WYBRANE A RESZTA NIE OBCHODZI ALE JEST **/
-/** czyli mozna powiedziec ze jest jakies zabezpiczenie jak przekroczy ktos lengthbyte albo wpisze za malo, na rowy to pierdole **/
+int findRealSizeOfRow(FILE *file)
+{
+	fseek (file , 0, SEEK_SET);
+	char arr[1];
+	int i = 0;
+	while(1){
+		fread( arr, sizeof(char), 1, file );
+		if(arr[0] == '\n')
+		{
+			break;	
+		}else if(arr[0] != '\n'){
+			i++;
+		}
+	}
+	
+	return i;
+}
 void sortLib(char *file, int rows, int lengthByte){
         printf("sort Lib");
         FILE *fileG = fopen(file,"r+");
         int lengthByteT = lengthByte;
-        if(lenghtFile(fileG) != lengthByte+1){
-             lengthByteT = lenghtFile(fileG) - 1;
+        if(findRealSizeOfRow(fileG) != lengthByte){
+             lengthByteT = findRealSizeOfRow(fileG);
         }
         char *tempRecord = malloc(sizeof(char) * lengthByte );
         char *tempRecord2 = malloc(sizeof(char) * lengthByte );
@@ -116,59 +102,38 @@ void sortLib(char *file, int rows, int lengthByte){
         free(tempRecord);
         free(tempRecord2);
 }
-
-fpos_t findNextRow(FILE *file, int row){
-	/**niby działa **/
-	fseek (file , 0, SEEK_SET);
-	char arr[1];
-	fpos_t currentRow;
-	int i = 0;
-	while(1){
-		fread( arr, sizeof(char), 1, file );
-		if(arr[0] == '\n' && i==row)
-		{
-			break;	
-		}else if(arr[0] == '\n'){
-			i++;
-		}
-	}
-	fgetpos(file, &currentRow);
-	return currentRow;
-}
 void copyLib(char *file,char *fileTo,int record, int lengthByte){
-	/** Kopiowane do pliku B, uwzglednione z tym że mozna podać mniej bytów i tak skopiuje dobrze i zrobi nowa linie. **/
-	/** problem może być jak ktoś przekroczy byte. **/
-	/** ZROBIĆ POZNIEJ CHECKA NA BYTE > ROWBYTES. **/
-	
-	printf("copy lib");
+
 	char *arr = malloc(sizeof(char) * lengthByte);
 	char temp[1];
-	
+	int createNewLine = 0;
 	FILE *oldFile = fopen(file,"r");
 	FILE *newFile = fopen(fileTo,"w+");
-	
-	fpos_t currentRow;
+	int realSize = findRealSizeOfRow(oldFile);
+
+	if(lengthByte > realSize){
+		lengthByte = realSize;
+	}
+	if(lengthByte < realSize){
+		createNewLine = 1;
+	}
+
 	fseek (oldFile , 0, SEEK_SET); 
-	fgetpos(oldFile, &currentRow);
 	
 	for(int i =0; i< record; i++){
-		fsetpos(oldFile, &currentRow);
-		fread( arr, sizeof(char), lengthByte, oldFile );
-		fwrite (arr , sizeof(char), lengthByte, newFile);	
-			fpos_t currentRow2;
-			fgetpos(oldFile, &currentRow2);
-			fread( temp, sizeof(char), 1, oldFile );
-		if(temp[0] != '\n'){
-			// jeśli nie napotka końca linii to próbuje tworzyć nową linie.
-			currentRow = findNextRow(oldFile, i);
-			temp[0] = '\n';
-			fwrite (temp , sizeof(char), 1, newFile);
+		
+		if(fread( arr, sizeof(char), lengthByte, oldFile ) != lengthByte)
+			break;
+		if(fwrite (arr , sizeof(char), lengthByte, newFile)  != lengthByte)
+			break;
+		
+		if(createNewLine == 1){
+			fseek(oldFile , realSize-lengthByte + 1, SEEK_CUR );
+		}else{
+			fseek(oldFile , 1, SEEK_CUR );
 		}
-		else{
-			//tworzy nową linie.
-			fwrite (temp , sizeof(char), 1, newFile);	
-			fgetpos(oldFile, &currentRow);
-		}
+		temp[0] = '\n';
+		fwrite (temp , sizeof(char), 1 , newFile);
 	}
 	fclose(oldFile);
 	fclose(newFile);
@@ -189,9 +154,8 @@ int lenghtFileSys(int file)
     return result;
 
 }
-/** Niby działa jak tamto **/
+
 void sortSys(char *file, int rows, int lengthByte){
-	 printf("sort sys");
          int fileG = open(file, O_RDWR);
          int lengthByteT = lengthByte;
          if(lenghtFileSys(fileG) != lengthByte+1){
@@ -228,20 +192,39 @@ void sortSys(char *file, int rows, int lengthByte){
                 free(tempRecord);
                 free(tempRecord2);
 }
-/** tu sie narazie nic nie poprawialem, mysle ze nigdy nie bede tutaj juz poprawial ;)**/
 void copySys(char *file,char *fileTo,int rows, int lengthByte){
-	printf("copy sys");
+
 	
     int source = open(file, O_RDONLY);
-    int newFile = open(fileTo, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR); // create ifne, wr only, trunc to 0, args with OCR
+    int newFile = open(fileTo, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR); 
     char *tmp = malloc(lengthByte * sizeof(char));
+	char temp[1];
+		printf("copy sys %d", lenghtFileSys(source));
+	int realSize = lenghtFileSys(source) - 1;
+	int createNewLine = 0;
+	
+	if(lengthByte > realSize){
+		lengthByte = realSize;
+	}
+	if(lengthByte < realSize){
+		createNewLine = 1;
+	}
   
   
      for (int i = 0; i < rows; i++){
-		 //**pozniej dodać sprawdzić czy to kopiuje wszystko itp**/
-		 
-        read(source, tmp,  (lengthByte + 1) * sizeof(char));
-        write(newFile, tmp,  (lengthByte + 1) * sizeof(char));
+	
+        if(read(source, tmp,  (lengthByte) * sizeof(char)) != lengthByte )
+			break;
+        if(write(newFile, tmp,  (lengthByte) * sizeof(char)) != lengthByte)
+			break;
+		
+		if(createNewLine == 1){
+			lseek(source , realSize-lengthByte + 1, SEEK_CUR );
+		}else{
+			lseek(source , 1, SEEK_CUR );
+		}
+		temp[0] = '\n';
+		write(newFile, temp,  1 * sizeof(char));
         
     }
   
@@ -254,23 +237,35 @@ void copySys(char *file,char *fileTo,int rows, int lengthByte){
 
 int main(int argc,char* argv[]) 
 {
-	char string[] = "a234"; // check for integer if == 0 than smth...
+	
 	srand((unsigned int)time(NULL));
 	if(argc >= 5)
-	{
+	{	
 		if(strcmp(argv[1], "generate") == 0 && argc == 5)
 		{
+			if(atoi(argv[3]) == 0 || atoi(argv[4]) == 0){
+			printf("Incorrect sizes!");
+			return 0;
+			}
 		  generate(argv[2],atoi(argv[3]),atoi(argv[4]));
-                }else if(strcmp(argv[1], "sort") == 0 && argc == 6){
+        }else if(strcmp(argv[1], "sort") == 0 && argc == 6){
+			if(atoi(argv[3]) == 0 || atoi(argv[4]) == 0){
+			printf("Incorrect sizes!");
+			return 0;
+			}
+
 			if(strcmp(argv[5], "sys") == 0){
 				sortSys(argv[2],atoi(argv[3]),atoi(argv[4]));
 			}
 			else if(strcmp(argv[5], "lib") == 0){
 				sortLib(argv[2],atoi(argv[3]),atoi(argv[4]));
 			}
-			
-		
 		}else if(strcmp(argv[1], "copy") == 0 && argc == 7){
+			if(atoi(argv[4]) == 0 || atoi(argv[5]) == 0){
+			printf("Incorrect sizes!");
+			return 0;
+			}
+
 				if(strcmp(argv[6], "sys") == 0){
 				copySys(argv[2],argv[3],atoi(argv[4]),atoi(argv[5]));
 			}
@@ -281,7 +276,7 @@ int main(int argc,char* argv[])
 		
 		
 	}else{
-		printf("Error, not enough arguments to program.");
+		printf("Error, not enough arguments for program.");
 		exit(0);
 	}	
 	return 0;
