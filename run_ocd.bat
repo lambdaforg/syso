@@ -1,0 +1,1 @@
+C:\gcc_toolchain\openocd-0.10.0\bin\openocd.exe -f board/stm32f429disc1.cfg

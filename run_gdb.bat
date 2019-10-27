@@ -1,0 +1,1 @@
+C:\gcc_toolchain\6_2017-q1-update\bin\arm-none-eabi-gdb.exe "build/F4Disc1_Base.elf"
