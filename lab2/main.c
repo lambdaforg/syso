@@ -8,7 +8,6 @@
 #include <fcntl.h> 
 
 void generate(char *file, int rows, int lengthByte){
-	printf("generate %d", lengthByte);
 	if(rows !=0 && lengthByte != 0)
 	{
 			FILE *fileG = fopen(file,"w+");
@@ -62,7 +61,6 @@ int findRealSizeOfRow(FILE *file)
 	return i;
 }
 void sortLib(char *file, int rows, int lengthByte){
-        printf("sort Lib");
         FILE *fileG = fopen(file,"r+");
         int lengthByteT = lengthByte;
         if(findRealSizeOfRow(fileG) != lengthByte){
@@ -199,7 +197,7 @@ void copySys(char *file,char *fileTo,int rows, int lengthByte){
     int newFile = open(fileTo, O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR); 
     char *tmp = malloc(lengthByte * sizeof(char));
 	char temp[1];
-		printf("copy sys %d", lenghtFileSys(source));
+	
 	int realSize = lenghtFileSys(source) - 1;
 	int createNewLine = 0;
 	
