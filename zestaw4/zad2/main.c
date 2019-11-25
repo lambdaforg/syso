@@ -3,94 +3,167 @@
 #include <signal.h>
 #include <time.h>
 #include <stdlib.h>
+#include <sys/types.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 int maxArguments;
 int typeMethod;
 pid_t childID = -1;
 int countSignalFromChild = 0;
-int countSender = 0;
+int countSignalFromParent = 0;
 
-
-void firstMethod(){
+void firstMethodSender(){
 		if(childID == -1){
 			printf("Something gone wrong with child. \n");
 			exit(0);
 		}
-			
+		
 		for(int i = 0 ; i < maxArguments; i++){
-			countSender++;
+			countSignalFromParent++;
 			printf("Sending signal to child - SIGUSR1 \n");
 			kill(childID, SIGUSR1);
-			waitpid(childID, NULL, 0);
+			sleep(10);
+			//waitpid(childID, NULL, 0);
+			//pause();
 		}
 			printf("Sending signal to child - SIGUSR2 \n");
 			kill(childID, SIGUSR2);
 }
-void secondMethod(){
-		
-		
+void secondMethodSender(){
+		if(countSignalFromParent < maxArguments)
+		{
+			printf("Parent: Send signal to child\n");
+			countSignalFromParent++;
+			kill(childID, SIGUSR1);
+		}
+		else{
+			printf("Parent: Send signal to child\n");
+			kill(childID, SIGUSR2);
+		}
 }
-void thirdMethod(){
-	
+void thirdMethodSender(){
+	if(countSignalFromParent < maxArguments)
+	{
+		countSignalFromParent++;
+		kill(childID,SIGRTMIN+3);
+	}
+		else{
+			printf("Parent: Send signal to child\n");
+			kill(childID, SIGRTMIN);
+		}
 }
-void awaitingForSignals(){
-		
+void printSignalInfo(){
+	printf("Parent: Received from child singal. Total signals %d\n",countSignalFromChild);
+}
+void printSenderInfo(){
+	printf("\nParent: Send to child %d singals \n", countSignalFromParent);
 }
 void shutdownProgram(){
-	printf("Shutdown program with child. \n");
 	printSenderInfo();
 	printSignalInfo();
-	kill(childID, SIGKILL);
+	int status;
+	int w = waitpid(childID,&status,WNOHANG);
+	if(w == 0){
+		printf("Shutdown program with child.\n");
+		kill(childID, SIGKILL);
+	}
+	else{	
+		printf("Shutdown program. Child was terminated early.\n");
+	}
 	exit(0);
 	
 }
-void handleChildSignal(){
-	printSignalInfo();
+void handleChildSignal(int signum, siginfo_t *info, void *context){
+	// Standard output
+	printf("here aye m?  ");
 	countSignalFromChild++;
-}
-void printSignalInfo(){
-	printf("Received from child %d singals.: \n"countSignalFromParent);
-}
-void printSenderInfo(){
-	printf("Send to child %d singals \n", countSender);
+	printSignalInfo();
+	
+	//If parent received signal from child
+	switch(typeMethod){
+	case 2:{
+		secondMethodSender();
+	}
+	break;
+	case 3:{
+		thirdMethodSender();
+	}
+	break;
+	}
+	//printf("id child %d", childID);
+	//waitpid(childID, NULL, 0);
 }
 int main(int argc, char *argv[]){
-	
-		if(argc  ==  2 ){
-			maxArguments = argv[0];
-			typeMethod = argv[1];
+		sigset_t newmask;
+        sigset_t oldmask;
+        sigemptyset(&newmask);
+        if(sigprocmask(SIG_SETMASK, &newmask, &oldmask) < 0){
+                perror("NIe udalo sie zablokowac sygnalu");
+		}
+		else{	
+		sigdelset(&newmask, SIGUSR1);
+		}
+		
+		printf("Start program %d\n", argc);
+		if(argc  ==  3){
+			maxArguments = atoi(argv[1]);
+			typeMethod = atoi(argv[2]);
 		}
 		else{
+			printf("Not enough arguments");
 			return 0;
 		}
-	
 		
-		struct sigaction act;
-		act.sa_handler = handleChildSignal;
-		sigemptyset(&act.sa_mask);
-		act.sa_flags = 0;
-		
-		
-		/**Tworzy proces potomny **/
-		sigaction(SIGUSR1, &act, NULL);
-		char* arg[] = {"./program", NULL};
-		int status;
-		
+		printf("EHH %d\n", maxArguments);
 		childID = fork();	
+		
 		if(childID == 0){
-		execvp(arg[0],arg);
-		exit(EXIT_SUCCESS);
+			 printf("Starting child \n");
+			 execl("./program", "./program", NULL);
 		}
-
-		signal(SIGINT, shutdownProgram);
-		
-		firstMethod();
-		
-		while(1){
+		else{
 			sleep(1);
-			//signal(SIGINT, operateINT);	
+			struct sigaction act;
+			sigemptyset(&act.sa_mask);
+			act.sa_flags = SA_SIGINFO;	
+			act.sa_sigaction = handleChildSignal;
+			sigdelset(&act.sa_mask, SIGUSR2);
+			sigaction(SIGUSR1, &act, NULL);
+			
+			sigdelset(&act.sa_mask, SIGRTMIN+3);
+			sigaction(SIGRTMIN+3, &act, NULL);
+			
+			signal(SIGINT,shutdownProgram);
+			
+			printf("Child process %d \n", childID);
+			
+			switch(typeMethod){
+				case 1:
+				{
+					firstMethodSender();
+				}
+				break;
+				case 2:
+				{
+					secondMethodSender();
+				}
+				break;
+				case 3:
+				{
+					thirdMethodSender();
+				}
+				break;
+				default:{
+					printf("Invalid type, program maintance only from 1 to 3 methods.\n");
+					shutdownProgram();
+				}
+				break;
+			}
+			
+			while(1){
+				sleep(15);
+				pause();
+			}
 		}
-	
-		return 0;
 }
