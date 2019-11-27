@@ -11,8 +11,18 @@ void operateSTR(int signum){
 	switch(isPaused){
 		case 0:
 		{
+			sigset_t newmask;
+            sigset_t oldmask;
+            sigemptyset(&newmask);
+            if(sigprocmask(SIG_SETMASK, &newmask, &oldmask) < 0){
+                perror("NIe udalo sie zablokowac sygnalu");
+			}
+			
 			printf("Oczekuje na CTRL+Z - kontynuacja albo CTRL+C - zakonczenie programu\n");
 			isPaused = 1;
+			
+			pause();
+			
 		}
 		break;
 		case 1: 
@@ -47,12 +57,11 @@ int main(){
 		while(1){
 			sleep(1);
 			signal(SIGINT, operateINT);	
-			if(isPaused == 0){
+			
 			time ( &rawtime );
 			tm = localtime ( &rawtime );
-			
 			printf("%d:%d:%d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-			}
+			
 		
 		}
 	
