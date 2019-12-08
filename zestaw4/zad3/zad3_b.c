@@ -42,30 +42,6 @@ void showEntity(char **arr, int size){
 				 }
 		 }	
 }
-
-/*char *getParametrs(char *command){
-	
-	char *param[256]; 
-	init(param,maxParametrs);
-	char * pch = strtok(line_buf, " \n\t\r");
-	int index = 0;
-	  while (pch != NULL) 
-				{ 
-				if(index < maxParametrs)
-						param[index] = pch;
-						else{
-							printf("Too much arguments to maintance.");
-							showEntity(param, maxParametrs);
-							exit(0);
-						}
-						index++;
-						pch = strtok(NULL, " \n\t\r");
-		
-				} 	
-				
-		return param;		
-	
-}*/
 int getParametrs(char line_buf[], struct Command *commands, int i){
 	
 	int status = 1;
@@ -81,7 +57,7 @@ int getParametrs(char line_buf[], struct Command *commands, int i){
 				}
 						else{
 							printf("Too much arguments to maintance.");
-							showEntity(commands[i].param[e], maxParametrs);
+							showEntity(commands[i].param, maxParametrs);
 							return 0;
 							//exit(0);
 						}
@@ -89,6 +65,9 @@ int getParametrs(char line_buf[], struct Command *commands, int i){
 						pch = strtok(NULL, " ");
 		
 				} 	
+				
+
+				
 	return status;			
 }
 struct Command * getCommand(char param[], int *i){
@@ -103,8 +82,6 @@ struct Command * getCommand(char param[], int *i){
 			if(index > 0){
 				commands =  realloc(commands,(index +1) *sizeof (struct Command));
 			}
-			int ee = strlen(str);
-			printf( "%s\n", str);
 			commands[index].std = str;
 			str = strtok( NULL, "|\n" );
 			index++;
@@ -115,67 +92,85 @@ struct Command * getCommand(char param[], int *i){
 					printf("\n !! ERRORS WITH YOURS ARGUMENTS !! \n");
 					exit(-1);
 			}
-			printf( "%s\n", commands[i].std);
 		}
 		*i = index;
-		
 	return commands;
 }
 int launch_command(struct Command *commands, int index){
 	
-		//amount of commands with arguments
-		int size = index;
-		int pipes[2];
-		
-		int fd[2];
-			pipe(fd);
-				pid_t pid = fork();
-				if (pid == 0) { // dziecko
-					close(fd[1]); 
-					dup2(fd[0],STDIN_FILENO);
-					execlp("grep", "grep","Ala", NULL);
-				} else { // rodzic
-					close(fd[0]);
-					// write(fd[1], ...) - przesłanie danych do grep-a
-				}
-		
-		
-		
-		
-		
-		for(int i = 0; i < index; i++){
+	
+		int pipes[index][2];
+		int i;
+	
+		for(i = 0; i < index; i++){
 			
 			
-			if(pipe(pipes) == -1) {
+			
+			if(i < index){
+			if(pipe(pipes[i]) == -1) {
             printf("Error on pipe.\n");
             exit(EXIT_FAILURE);
 			}
-			
-			if(i == 0){
-				execvp(commands[i].param[0], param);
+			}
+		
+			pid_t nChild = fork();
+			if(nChild == 0){
+					if(i == 0){
+						
+						 dup2(pipes[i][1], STDOUT_FILENO);
+						   
+						  close(pipes[i][0]);
+						  close(pipes[i][1]);
+						
+						execvp(commands[i].param[0], commands[i].param);
+					
+						_exit(1);
+					}
+					else if(i == index - 1){
+						//close(pipes[i-1][0]);
+						
+						dup2(pipes[i-1][0],STDIN_FILENO);
+						  close(pipes[i-1][0]);
+						  close(pipes[i-1][1]);
+						
+						execvp(commands[i].param[0], commands[i].param);
+
+						_exit(1);
+					}
+					else{
+							//close(pipes[i-1][1]);
+							dup2(pipes[i-1][0], STDIN_FILENO);
+							
+							dup2(pipes[i][1], STDOUT_FILENO);
+					
+							 close(pipes[i][0]);
+							 close(pipes[i][1]);
+					
+					
+							 close(pipes[i-1][0]);
+							 close(pipes[i-1][1]);
+							
+							execvp(commands[i].param[0], commands[i].param);
+							_exit(1);
+					
+					}
+					
+		
 			}
 			else{
-			pid_t nChild = fork();
 			
-			
-			if(nChild == 0){
-					close(fd[1]); 
-					dup2(fd[0],STDIN_FILENO);
-					execvp(param[0], param);
-			
+			if (i > 1) {
+            close(pipes[i - 1][0]);
+            close(pipes[i - 1][1]);
 			}
 			}
-			
-		
 		
 		
 		}
-	
-
-
+		close(pipes[i - 1][0]);
+		close(pipes[i - 1][1]);
+		
 }
-
-//execvp(param[0], param);
 int main(int argc,char* argv[]) 
 {
 	
@@ -188,49 +183,34 @@ int main(int argc,char* argv[])
 				 printf("Cannot open the file.");
 				 exit(0);
 			 }
-			 
-			 char *line_buf = NULL;
+			 ssize_t nread;
+			 char line_buf[512];
 			 struct Command *commands;
 			 size_t len = 0;
-			 ssize_t line_size; 
-			 line_size = getline(&line_buf, &len, file);
-			 char *param[256];
-			 while (line_size >= 0)
-			{
+			 ssize_t line_size = 1 ;
+			  char *line = NULL;
+			// line_size = getline(&line_buf, &len, file);
+		
+			  while ((nread = getline(&line, &len, file)) != -1) {
 				if(readed_lines >= maxLines)
 				{
 					printf("Too much lines to read.");
-					showEntity(param, maxParametrs);
 					break;
 				}
-			 	
 				int index;
-				struct Command *commands = getCommand(param, &index);
-			  
-																					pid_t pid = fork();
-																					if(pid == 0) {
-																						printf("------------------------------------------------------------\n");
-																						printf("--------------------------MOTHER PID: %d-------------------------\n", (int)getpid());
-																						launch_command(commands, index);
-																						exit(1);
-																					}		
-																					int status;
-																					wait(&status);
-																					if (status) {
-																						printf( "Error, couldn't open your operations! Your last trace is:\n");
-																						showEntity(param, maxParametrs);
-																						printf("\n");
-																					}
-			line_size = getline(&line_buf, &len, file);
-				readed_lines++;
+				commands = getCommand(line, &index);
+			 	launch_command(commands, index);
+				wait(NULL);
+				
+				
 			}
 			
 			
 			  
-			  free(line_buf);
-			  free(commands);
-			  commands = NULL;
-			  line_buf = NULL;		
+			 // free(line_buf);
+			 // free(commands);
+			//  commands = NULL;
+			 //// line_buf = NULL;		
 			 
 			  fclose(file);
 		

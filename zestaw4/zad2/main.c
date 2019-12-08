@@ -20,31 +20,35 @@ void firstMethodSender(){
 		}
 		
 		for(int i = 0 ; i < maxArguments; i++){
+			sleep(3);
 			countSignalFromParent++;
-			printf("Sending signal to child - SIGUSR1 \n");
+			printf("Parent: Sending signal to child - SIGUSR1 \n");
 			kill(childID, SIGUSR1);
-			sleep(10);
-			//waitpid(childID, NULL, 0);
-			//pause();
 		}
-			printf("Sending signal to child - SIGUSR2 \n");
+			sleep(5);
+			printf("Parent: Sending signal to child - SIGUSR2 \n");
+		
 			kill(childID, SIGUSR2);
 }
 void secondMethodSender(){
 		if(countSignalFromParent < maxArguments)
 		{
+			//sleep(2);
 			printf("Parent: Send signal to child\n");
 			countSignalFromParent++;
 			kill(childID, SIGUSR1);
+		
 		}
 		else{
-			printf("Parent: Send signal to child\n");
+			printf("Parent: Send signal SIGUSR2 to child\n");
 			kill(childID, SIGUSR2);
 		}
 }
 void thirdMethodSender(){
 	if(countSignalFromParent < maxArguments)
 	{
+		//sleep(2);
+		printf("Parent: Send signal to child\n");
 		countSignalFromParent++;
 		kill(childID,SIGRTMIN+3);
 	}
@@ -57,30 +61,27 @@ void printSignalInfo(){
 	printf("Parent: Received from child singal. Total signals %d\n",countSignalFromChild);
 }
 void printSenderInfo(){
-	printf("\nParent: Send to child %d singals \n", countSignalFromParent);
+	printf("\nParent sent %d signals SIGUSR1 and 1 SIGUSR2 to child\n", countSignalFromParent);
 }
 void shutdownProgram(){
+	int v = waitpid(childID, NULL, 0);
+	if(v != childID){
+					printf("Shutdown program with child.\n");
+					kill(childID, SIGUSR2);
+	}
+	else{
+                printf("Shutdown program. Child was terminated earlier.\n");
+	} 
 	printSenderInfo();
 	printSignalInfo();
-	int status;
-	int w = waitpid(childID,&status,WNOHANG);
-	if(w == 0){
-		printf("Shutdown program with child.\n");
-		kill(childID, SIGKILL);
-	}
-	else{	
-		printf("Shutdown program. Child was terminated early.\n");
-	}
 	exit(0);
 	
 }
 void handleChildSignal(int signum, siginfo_t *info, void *context){
 	// Standard output
-	printf("here aye m?  ");
 	countSignalFromChild++;
 	printSignalInfo();
 	
-	//If parent received signal from child
 	switch(typeMethod){
 	case 2:{
 		secondMethodSender();
@@ -91,8 +92,7 @@ void handleChildSignal(int signum, siginfo_t *info, void *context){
 	}
 	break;
 	}
-	//printf("id child %d", childID);
-	//waitpid(childID, NULL, 0);
+	
 }
 int main(int argc, char *argv[]){
 		sigset_t newmask;
@@ -104,7 +104,7 @@ int main(int argc, char *argv[]){
 		else{	
 		sigdelset(&newmask, SIGUSR1);
 		}
-		
+		signal(SIGINT,shutdownProgram);
 		printf("Start program %d\n", argc);
 		if(argc  ==  3){
 			maxArguments = atoi(argv[1]);
@@ -114,13 +114,16 @@ int main(int argc, char *argv[]){
 			printf("Not enough arguments");
 			return 0;
 		}
-		
-		printf("EHH %d\n", maxArguments);
 		childID = fork();	
 		
 		if(childID == 0){
 			 printf("Starting child \n");
-			 execl("./program", "./program", NULL);
+			 char *arg[3];
+			 arg[0] = "./program";
+			 arg[1] = argv[2];
+			 arg[2] = NULL;
+
+			 execvp(arg[0], arg);
 		}
 		else{
 			sleep(1);
@@ -134,7 +137,7 @@ int main(int argc, char *argv[]){
 			sigdelset(&act.sa_mask, SIGRTMIN+3);
 			sigaction(SIGRTMIN+3, &act, NULL);
 			
-			signal(SIGINT,shutdownProgram);
+
 			
 			printf("Child process %d \n", childID);
 			
@@ -161,9 +164,14 @@ int main(int argc, char *argv[]){
 				break;
 			}
 			
-			while(1){
-				sleep(15);
-				pause();
-			}
+				while(1){
+					int v = waitpid(childID, NULL, 0);
+				if(v == childID){
+					raise(SIGINT);
+				}
+					
+				}
+				
+	
 		}
 }

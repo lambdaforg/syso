@@ -1,0 +1,2 @@
+ps aux|grep root|grep sbin
+ls -l|more

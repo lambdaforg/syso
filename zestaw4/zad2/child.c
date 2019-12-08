@@ -7,65 +7,54 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-int maxArguments;
 int typeMethod;
 pid_t childID = -1;
 int countSignalFromParent = 0;
 
 void printSignalInfo(){
-	printf("Child: Received from parent %d singals.: \n",countSignalFromParent);
-}
-void sendSignal(int signum, siginfo_t *info, void *context){
-			sigset_t newmask;
-            sigset_t oldmask;
-            sigemptyset(&newmask);
-            if(sigprocmask(SIG_SETMASK, &newmask, &oldmask) < 0){
-                perror("NIe udalo sie zablokowac sygnalu");
-			}
-			else{
-			sigdelset(&newmask, SIGUSR1);
-			}
-		
-		printf("Sending to parent signal \n");
-		countSignalFromParent++;
-		kill(getppid(), SIGUSR1);
-		sleep(1);
-		
-		//waitpid(childID, NULL, 0);
-}
-void sendSignalSigrt(int signum, siginfo_t *info, void *context){
-			sigset_t newmask;
-            sigset_t oldmask;
-            sigemptyset(&newmask);
-            if(sigprocmask(SIG_SETMASK, &newmask, &oldmask) < 0){
-                perror("NIe udalo sie zablokowac sygnalu");
-			}
-			else{
-			sigdelset(&newmask, SIGRTMIN+3);
-			}
-		
-		printf("Sending to parent signal \n");
-		countSignalFromParent++;
-		kill(getppid(), SIGRTMIN+3);
-		sleep(1);
+	printf("Child: Received from parent %d singals.: \n",countSignalFromParent + 1);
 }
 void shutdownProgram(){
 	printf("Shutdown child. \n");
 	printSignalInfo();
 	raise(SIGKILL);
-	//exit(0);
 	
 }
+void sendSignal(int signum, siginfo_t *info, void *context){
+				sigset_t newmask;
+				sigset_t oldmask;
+				sigemptyset(&newmask);
+				sigfillset(&newmask);
+				if(sigprocmask(SIG_SETMASK, &newmask, &oldmask) < 0){
+					perror("NIe udalo sie zablokowac sygnalu");
+				}
+				
+		sleep(3);
+		printf("Sending to parent signal \n");
+		countSignalFromParent++;
+		if(typeMethod != 3){
+			kill(getppid(), SIGUSR1);
+		}
+		else{
+			kill(getppid(), SIGRTMIN+3);
+		}
+		
+
+}
 int main(int argc, char *argv[]){
+		typeMethod = atoi(argv[1]);
 		sigset_t newmask;
         sigset_t oldmask;
-        sigemptyset(&newmask);
+		sigfillset(&newmask);
+		sigdelset(&newmask, SIGUSR1);
+	    sigdelset(&newmask, SIGUSR2);
+		sigdelset(&newmask, SIGRTMIN+3);
+		sigdelset(&newmask, SIGRTMIN);
             if(sigprocmask(SIG_SETMASK, &newmask, &oldmask) < 0){
                 perror("NIe udalo sie zablokowac sygnalu");
 			}
-			else{
-			sigdelset(&newmask, SIGUSR1);
-			}
+			
+		signal(SIGUSR2, shutdownProgram);
 			
 		struct sigaction act;
 		sigemptyset(&act.sa_mask);
@@ -76,7 +65,7 @@ int main(int argc, char *argv[]){
 		printf("Child start \n");
 
 		sigaction(SIGUSR1, &act, NULL);
-		act.sa_sigaction = sendSignalSigrt;
+		act.sa_sigaction = sendSignal;
 		sigdelset(&act.sa_mask, SIGRTMIN+3);
 		
 		sigaction(SIGRTMIN+3, &act, NULL);
@@ -85,12 +74,8 @@ int main(int argc, char *argv[]){
 		sigdelset(&act.sa_mask, SIGRTMIN);
 		
 		sigaction(SIGRTMIN, &act, NULL);
-		signal(SIGUSR2, shutdownProgram);
-		
-		sleep(10);
-		
+
 		while(1){
-			sleep(10);
 			pause();
 		}
 		
