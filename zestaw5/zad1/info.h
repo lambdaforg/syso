@@ -15,6 +15,6 @@ typedef struct Message {
     char msg_text[MAX_CONT_SIZE];
 } Message;
 
-const size_t MSG_SIZE = sizeof(Message) - sizeof(long);
+const size_t MSG_SIZE = sizeof(Message);
 
 #endif

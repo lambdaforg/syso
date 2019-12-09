@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-
+#include <mqueue.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -17,7 +17,7 @@
 #define FAILURE_EXIT(format, ...) { fprintf(stderr, format, ##__VA_ARGS__); exit(-1); }
  
 // Kolejki klientow i serwera, licznik klientow
-int queue_descriptor = -2;  
+mqd_t  queue_descriptor = -2;  
 int clients_queue[MAX_CLIENTS][2]; 
 int counterClient = 0;
 
@@ -51,18 +51,28 @@ void handleStop(struct Message *msg){
 	int clientID = msg->idSender;
 	int index = findClient(clientID);
 		
+	 if (mq_close(clients_queue[index][1]) == -1) {
+            printError("server: error closing %d client queue\n");
+      }
+		
 	clients_queue[index][0] = -1;
 	clients_queue[index][1] = -1;
 
 }
 void handleLogin(struct Message *msg){
 	
-			key_t clientQueueKey;
+			char clientQueueKey[25];
 			//klucz klienta
-			if (sscanf(msg->msg_text, "%d", &clientQueueKey) < 0)
+			if (sscanf(msg->msg_text, "%s", clientQueueKey) < 0)
 			printError("erorr");
 			// kolejka klienta
-			int clientQueue = msgget(clientQueueKey, 0);
+			printf("NAZWA A A ->>%s\n", clientQueueKey);
+			fflush(stdout);
+			int clientQueue = mq_open(clientQueueKey, O_WRONLY);
+			if(clientQueue == -1){
+					printf("test");
+			}
+			
 			//ppid klienta
 			int clientID = msg->idSender;
 		
@@ -83,7 +93,7 @@ void handleLogin(struct Message *msg){
 			}
 
 		
-		if (msgsnd(clientQueue, &msgo, MSG_SIZE, 0) == -1)
+		if (mq_send(clientQueue,(char*) &msgo, MSG_SIZE, 1) == -1)
 			printError("server: error with client queu");
 }
 void handleTime(struct Message *msg){
@@ -100,14 +110,27 @@ void handleTime(struct Message *msg){
 		strftime(buff, 20, "%Y-%m-%d %H:%M:%S", localtime(&now));	
 		sprintf(msgo.msg_text, "%s", buff);
 		
-	    if(msgsnd(clients_queue[index][1], &msgo, MSG_SIZE, 0) == -1)
+	    if(mq_send(clients_queue[index][1], (char*) &msgo, MSG_SIZE, 1) == -1)
 				printError("server: Error with time sender\n");
 }
 void handleEnd(struct Message *msg){
 	exit(1);
 }
 void close_queue(){
-		msgctl(queue_descriptor, IPC_RMID, NULL);
+	for(int i = 0 ; i< counterClient; i++){
+	if (mq_close(clients_queue[i][1]) == -1) {
+            printf("server: error closing client queue\n");
+      }
+	}
+	if(queue_descriptor != -1){
+		if(mq_close(queue_descriptor) == -1) {
+            printf("server: error closing server queue\n");
+        } 
+		
+		if (mq_unlink("/pipe") == -1) {
+            printf("server: error deleting public queue\n");
+        }
+	}
 }
 void handle_request(Message *msg){
 	switch(msg->msg_type){
@@ -134,26 +157,27 @@ int main(){
 		atexit(close_queue);
 		signal(SIGINT, close_singal);
 		
+		struct mq_attr attr;
+		attr.mq_maxmsg = 9;
+		attr.mq_msgsize = MSG_SIZE;
 		
-		char *path = getenv("HOME");
-		 if(path == NULL)
-			printError("server: Error with path\n");
-			
-		key_t serverKey = ftok(path, PROJECT_ID);
-		if(serverKey == -1){
-			printError("Erro with serverKey");
-		 }	
-		queue_descriptor = msgget(serverKey, IPC_CREAT | IPC_EXCL | 0666);
+		queue_descriptor = mq_open("/pipe", O_RDONLY | O_CREAT | O_EXCL, 0666, &attr);
+
 		 if(queue_descriptor == -1){
-			printf("Erro with queue_descriptor");
-			queue_descriptor = msgget(serverKey, 0);
-			close_queue();
-			exit(1);
+			//printError("Erro with queue_descriptor");
+			queue_descriptor = mq_open("/pipe", O_RDONLY, &attr);
+			if(mq_close(queue_descriptor) == -1) {
+            printf("server: error closing server queue\n");
+			} 
+		
+			if (mq_unlink("/pipe") == -1) {
+            printf("server: error deleting public queue\n");
+			}
 		}
 		
 		Message msg;
 		while(1){
-		 if (msgrcv(queue_descriptor, &msg, MSG_SIZE, 0, 0) < 0){
+		 if (mq_receive(queue_descriptor, (char*) &msg, MSG_SIZE, NULL) < 0){
 					  printError("server: receiving message failed\n");
 		 }
 			
