@@ -14,9 +14,9 @@
 
 #include "info.h"
 
-// kolejka servera i klienta
+// kolejka Servera i klienta
 mqd_t queue_descriptor = -1;  
-mqd_t queue_client = -1;
+mqd_t queue_Client = -1;
 
 
 void printError(char *text){
@@ -31,37 +31,37 @@ struct Message createMessage( long type, pid_t id, char *text){
 	sprintf(msg.msg_text, "%s", text);
 	return msg;
 }
-void addingClientToServer(char *clientKey){
+void addingClientToServer(char *ClientKey){
 	
 	
 		
 	    Message msg = createMessage(LOGIN,getpid(), "L");
-		sprintf(msg.msg_text, "%s", clientKey);
+		sprintf(msg.msg_text, "%s", ClientKey);
 		int sessionID;
 		
 		
 		if (mq_send(queue_descriptor,  (char*) &msg, MSG_SIZE, 1) == -1){
-			 printError("client: LOGIN request failed\n");	 
+			 printError("Client: LOGIN request failed\n");	 
 		}
-		 if (mq_receive(queue_client, (char*)  &msg, MSG_SIZE, NULL) == -1) 
-			printError("client: catching LOGIN response failed\n");
+		 if (mq_receive(queue_Client, (char*)  &msg, MSG_SIZE, NULL) == -1) 
+			printError("Client: catching LOGIN response failed\n");
 		if (sscanf(msg.msg_text, "%d", &sessionID) < 1)
-			printError("client: scanning LOGIN response failed\n");
+			printError("Client: Storing message failed\n");
 		if (sessionID < 0){
-			printError("client: server cannot have more clients\n");
+			printError("Client: Server has a maximum Clients\n");
 		}
 		if(msg.msg_type == LOGIN){
-		 printf("client: client registered. Session no: %d\n", sessionID);
+		 printf("Client: Client registered. Session id: %d\n", sessionID);
 		}
 
 }
 
-void timeSender(char* clientKey){
+void timeSender(char* ClientKey){
 	Message msg = createMessage(TIME,getpid(),"Time not found");
 	if(mq_send(queue_descriptor, (char*) &msg, MSG_SIZE, 1) == -1)
-         printError("client: Sender failded");
-    if(mq_receive(queue_client, (char*) &msg, MSG_SIZE, NULL) == -1)
-         printError("client: Fetching time failded");
+         printError("Client: Sender failed");
+    if(mq_receive(queue_Client, (char*) &msg, MSG_SIZE, NULL) == -1)
+         printError("Client: Fetching time failed");
     
 	printf("%s\n", msg.msg_text);
 }
@@ -81,23 +81,23 @@ void deleteQueue(int var){
 		}
 	 Message msg = createMessage(type,getpid(), "dQ");
 	if(mq_send(queue_descriptor, (char*) &msg, MSG_SIZE, 1) == -1)
-         printf("client: Sender failded");
-	//msgctl(queue_client, IPC_RMID, NULL);
+         printf("Client: Sender failed");
+	//msgctl(queue_Client, IPC_RMID, NULL);
 	exit(1);
 }
 void close_queue(){
-		char clientKey[25];
-		sprintf(clientKey, "/%d",33);
+		char ClientKey[25];
+		sprintf(ClientKey, "/%d",33);
 	
 		if (mq_close(queue_descriptor) == -1) {
-            printf("client: there was some error closing servers's queue!\n");
+            printf("Client: Error with server queue [CLOSE]!\n");
         } 
 
-        if (mq_close(queue_client) == -1) {
-            printf("client: there was some error closing client's queue!\n");
+        if (mq_close(queue_Client) == -1) {
+            printf("Client: Error with Client queue [CLOSE]!\n");
         } 
-        if (mq_unlink(clientKey) == -1) {
-            printf("client: there was some error deleting client's queue!\n");
+        if (mq_unlink(ClientKey) == -1) {
+            printf("Client: Error with Client queue[UNLINK]!\n");
         } 
 	
 	
@@ -110,15 +110,6 @@ void endSender(){
 }
 void close_singal(int signum){
 	deleteQueue(1);
-}
-void gen_random(char *s, const int len) {
-    static const char alphanum[] =     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-    for (int i = 0; i < len; ++i) {
-        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-    }
-
-    s[len] = 0;
 }
 int main(){
 		
@@ -137,33 +128,30 @@ int main(){
 		attr.mq_msgsize = MSG_SIZE;
 		
 		//Tworzenie kolejki klienta
-		char clientKey[25];
-		sprintf(clientKey, "/pipeClient%d",getpid());
-		//clientKey[7] = "\0";
-		printf("%s", clientKey);
-		queue_client = mq_open(clientKey, O_RDONLY | O_CREAT | O_EXCL, 0666, &attr); 
-		if(queue_client != -1){
-				printf("good");
-		}
-		else{
-				printf("LOL");
+		char ClientKey[25];
+		sprintf(ClientKey, "/pipeClient%d",getpid());
+		//ClientKey[7] = "\0";
+		printf("%s", ClientKey);
+		queue_Client = mq_open(ClientKey, O_RDONLY | O_CREAT | O_EXCL, 0666, &attr); 
+		if(queue_Client == -1){
+				printf("Something goes bad with queue_Client");
 		}
 		char fromUser[20];
 		//dodanie kolejki do serwera
-		addingClientToServer(clientKey);
+		addingClientToServer(ClientKey);
 		
 		while(1){
 
-			 printf("client: enter your request: ");
+			 printf("Client: enter your request: ");
 			if (fgets(fromUser, 20, stdin) == NULL){
-				printf("client: [ TIME ] OR [ END ]\n");
+				printf("Client: [ TIME ] OR [ END ]\n");
 				continue;
 			}
 			int n = strlen(fromUser);
 			if (fromUser[n-1] == '\n') fromUser[n-1] = 0;
 			 
 			if (strcmp(fromUser, "TIME") == 0) {
-				timeSender(clientKey);
+				timeSender(ClientKey);
 			} else if (strcmp(fromUser, "END") == 0) {
 				endSender(); 
 			}

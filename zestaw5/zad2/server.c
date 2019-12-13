@@ -32,11 +32,11 @@ struct Message createMessage(long type, pid_t id){
 	msg.idSender = id;
 	return msg;
 }
-int findClient(int clientID){
+int findClient(int ClientID){
 	
 		for(int i = 0 ; i < MAX_CLIENTS; i++){
 				
-				if(clients_queue[i][0] == clientID){
+				if(clients_queue[i][0] == ClientID){
 					return i;
 				}
 			
@@ -45,14 +45,14 @@ int findClient(int clientID){
 	return -1;
 }
 void handleStop(struct Message *msg){
-	printf("DELETING USER QUEUE FROM SERVER, USER WAS STOPPED.\n");
+	printf("DELETING USER QUEUE FROM Server, USER WAS STOPPED.\n");
 	fflush(stdout);
 	
-	int clientID = msg->idSender;
-	int index = findClient(clientID);
+	int ClientID = msg->idSender;
+	int index = findClient(ClientID);
 		
 	 if (mq_close(clients_queue[index][1]) == -1) {
-            printError("server: error closing %d client queue\n");
+            printError("Server: error closing %d Client queue\n");
       }
 		
 	clients_queue[index][0] = -1;
@@ -61,31 +61,30 @@ void handleStop(struct Message *msg){
 }
 void handleLogin(struct Message *msg){
 	
-			char clientQueueKey[25];
+			char ClientQueueKey[25];
 			//klucz klienta
-			if (sscanf(msg->msg_text, "%s", clientQueueKey) < 0)
+			if (sscanf(msg->msg_text, "%s", ClientQueueKey) < 0)
 			printError("erorr");
 			// kolejka klienta
-			printf("NAZWA A A ->>%s\n", clientQueueKey);
-			fflush(stdout);
-			int clientQueue = mq_open(clientQueueKey, O_WRONLY);
-			if(clientQueue == -1){
+		
+			int ClientQueue = mq_open(ClientQueueKey, O_WRONLY);
+			if(ClientQueue == -1){
 					printf("test");
 			}
 			
 			//ppid klienta
-			int clientID = msg->idSender;
+			int ClientID = msg->idSender;
 		
 			
 			Message msgo = createMessage(LOGIN, getpid());
 	
 			if(counterClient < MAX_CLIENTS )
 			{
-				printf("Adding new client!\n");
+				printf("Adding new Client!\n");
 				fflush(stdout);
 				
-				clients_queue[counterClient][0] = clientID;
-				clients_queue[counterClient][1] = clientQueue;
+				clients_queue[counterClient][0] = ClientID;
+				clients_queue[counterClient][1] = ClientQueue;
 				sprintf(msgo.msg_text, "%d", counterClient);
 				
 				counterClient++;
@@ -93,15 +92,15 @@ void handleLogin(struct Message *msg){
 			}
 
 		
-		if (mq_send(clientQueue,(char*) &msgo, MSG_SIZE, 1) == -1)
-			printError("server: error with client queu");
+		if (mq_send(ClientQueue,(char*) &msgo, MSG_SIZE, 1) == -1)
+			printError("Server: Error with Client queue");
 }
 void handleTime(struct Message *msg){
 
 		int index = findClient(msg->idSender);
 		if(index == -1)
 		{
-			printError("not found queue client");
+			printError("Not found client queue");
 			return;
 		}
 		Message msgo = createMessage(TIME,getpid());
@@ -111,7 +110,7 @@ void handleTime(struct Message *msg){
 		sprintf(msgo.msg_text, "%s", buff);
 		
 	    if(mq_send(clients_queue[index][1], (char*) &msgo, MSG_SIZE, 1) == -1)
-				printError("server: Error with time sender\n");
+				printError("Server: Error with time sender\n");
 }
 void handleEnd(struct Message *msg){
 	exit(1);
@@ -119,16 +118,16 @@ void handleEnd(struct Message *msg){
 void close_queue(){
 	for(int i = 0 ; i< counterClient; i++){
 	if (mq_close(clients_queue[i][1]) == -1) {
-            printf("server: error closing client queue\n");
+            printf("Server: Error closing Client queue\n");
       }
 	}
 	if(queue_descriptor != -1){
 		if(mq_close(queue_descriptor) == -1) {
-            printf("server: error closing server queue\n");
+            printf("Server: Error closing Server queue\n");
         } 
 		
 		if (mq_unlink("/pipe") == -1) {
-            printf("server: error deleting public queue\n");
+            printf("Server: Error deleting public queue\n");
         }
 	}
 }
@@ -153,7 +152,7 @@ void close_singal(int signum){
 		exit(1);
 }
 int main(){
-		//funkcja wykonywana przy zamknieciu serveruu
+		//funkcja wykonywana przy zamknieciu Serveruu
 		atexit(close_queue);
 		signal(SIGINT, close_singal);
 		
@@ -167,18 +166,18 @@ int main(){
 			//printError("Erro with queue_descriptor");
 			queue_descriptor = mq_open("/pipe", O_RDONLY, &attr);
 			if(mq_close(queue_descriptor) == -1) {
-            printf("server: error closing server queue\n");
+            printf("Server: Error closing Server queue\n");
 			} 
 		
 			if (mq_unlink("/pipe") == -1) {
-            printf("server: error deleting public queue\n");
+            printf("Server: Error deleting public queue\n");
 			}
 		}
 		
 		Message msg;
 		while(1){
 		 if (mq_receive(queue_descriptor, (char*) &msg, MSG_SIZE, NULL) < 0){
-					  printError("server: receiving message failed\n");
+					  printError("Server: receiving message failed\n");
 		 }
 			
 			handle_request(&msg);

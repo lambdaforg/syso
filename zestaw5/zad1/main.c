@@ -15,13 +15,17 @@
 
 #include "info.h"
 
-// kolejka servera i klienta
+// kolejka Servera i klienta
 int queue_descriptor = -1;  
-int queue_client = -1;
+int queue_Client = -1;
 
 
+void close_queue(){
+	msgctl(queue_Client, IPC_RMID, NULL);
+}
 void printError(char *text){
 	printf("%s", text);
+	close_queue();
 	
 	exit(-1);
 }
@@ -32,35 +36,35 @@ struct Message createMessage( long type, pid_t id, char *text){
 	sprintf(msg.msg_text, "%s", text);
 	return msg;
 }
-void addingClientToServer(key_t clientKey){
+void addingClientToServer(key_t ClientKey){
 	
 	
 		
 	    Message msg = createMessage(LOGIN,getpid(), "L");
-		sprintf(msg.msg_text, "%d", clientKey);
+		sprintf(msg.msg_text, "%d", ClientKey);
 		int sessionID;
 		
 		if (msgsnd(queue_descriptor, &msg, MSG_SIZE, 0) == -1){
-			 printError("client: LOGIN request failed\n");	 
+			 printError("Client: LOGIN request failed\n");	 
 		}
-		 if (msgrcv(queue_client, &msg, MSG_SIZE, 0, 0) == -1) 
-			printError("client: catching LOGIN response failed\n");
+		 if (msgrcv(queue_Client, &msg, MSG_SIZE, 0, 0) == -1) 
+			printError("Client: catching LOGIN response failed\n");
 		if (sscanf(msg.msg_text, "%d", &sessionID) < 1)
-			printError("client: scanning LOGIN response failed\n");
+			printError("Client: Storing message failed\n");
 		if (sessionID < 0){
-			printError("client: server cannot have more clients\n");
+			printError("Client: Server has a maximum Clients\n");
 		}
 		if(msg.msg_type == LOGIN){
-		 printf("client: client registered. Session no: %d\n", sessionID);
+		 printf("Client: Client registered. Session no: %d\n", sessionID);
 		}
 }
 
-void timeSender(key_t clientKey){
+void timeSender(key_t ClientKey){
 	Message msg = createMessage(TIME,getpid(),"Time not found");
 	if(msgsnd(queue_descriptor, &msg, MSG_SIZE, 0) == -1)
-         printError("client: Sender failded");
-    if(msgrcv(queue_client, &msg, MSG_SIZE, 0, 0) == -1)
-         printError("client: Fetching time failded");
+         printError("Client: Sender failed");
+    if(msgrcv(queue_Client, &msg, MSG_SIZE, 0, 0) == -1)
+         printError("Client: Fetching time failed");
     
 	printf("%s\n", msg.msg_text);
 }
@@ -80,12 +84,9 @@ void deleteQueue(int var){
 		}
 	 Message msg = createMessage(type,getpid(), "dQ");
 	if(msgsnd(queue_descriptor, &msg, MSG_SIZE, 0) == -1)
-         printf("client: Sender failded");
-	//msgctl(queue_client, IPC_RMID, NULL);
+         printf("Client: Sender failed");
+	//msgctl(queue_Client, IPC_RMID, NULL);
 	exit(1);
-}
-void close_queue(){
-	msgctl(queue_client, IPC_RMID, NULL);
 }
 void endSender(){
 	deleteQueue(2);
@@ -94,7 +95,7 @@ void close_singal(int signum){
 	deleteQueue(1);
 }
 int main(){
-		char text[] = "progfile";
+		srand(time(0)); 
 		//usuwa kolejke gdy zakonczy sie program
 		atexit(close_queue);
 		signal(SIGINT, close_singal);
@@ -108,25 +109,27 @@ int main(){
 		printf("%s", path);
 		
 		//Tworzenie kolejki klienta
-		key_t clientKey = ftok(text, 65); 
-		queue_client = msgget(clientKey, 0666 | IPC_CREAT); 
+		int data = rand();
+		printf("%d", data);
+		key_t ClientKey = ftok(path,rand() ); 
+		queue_Client = msgget(ClientKey, 0666 | IPC_CREAT); 
 		
 		char fromUser[20];
 		//dodanie kolejki do serwera
-		addingClientToServer(clientKey);
+		addingClientToServer(ClientKey);
 		
 		while(1){
 
-			 printf("client: enter your request: ");
+			 printf("Client: enter your request: ");
 			if (fgets(fromUser, 20, stdin) == NULL){
-				printf("client: [ TIME ] OR [ END ]\n");
+				printf("Client: [ TIME ] OR [ END ]\n");
 				continue;
 			}
 			int n = strlen(fromUser);
 			if (fromUser[n-1] == '\n') fromUser[n-1] = 0;
 			 
 			if (strcmp(fromUser, "TIME") == 0) {
-				timeSender(clientKey);
+				timeSender(ClientKey);
 			} else if (strcmp(fromUser, "END") == 0) {
 				endSender(); 
 			}
