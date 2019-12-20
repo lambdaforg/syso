@@ -1,31 +1,26 @@
 #define _GNU_SOURCE
-
+#include <mqueue.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
+#include <mqueue.h>
 #include <ctype.h>
 #include <time.h>
+#include <fcntl.h>
 #include <signal.h>
-#include <errno.h>
 
 #include "info.h"
 
 // kolejka Servera i klienta
-int queue_descriptor = -1;  
-int queue_Client = -1;
+mqd_t queue_descriptor = -1;  
+mqd_t queue_Client = -1;
 
 
-void close_queue(){
-	msgctl(queue_Client, IPC_RMID, NULL);
-}
 void printError(char *text){
 	printf("%s", text);
-	close_queue();
 	
 	exit(-1);
 }
@@ -36,18 +31,19 @@ struct Message createMessage( long type, pid_t id, char *text){
 	sprintf(msg.msg_text, "%s", text);
 	return msg;
 }
-void addingClientToServer(key_t ClientKey){
+void addingClientToServer(char *ClientKey){
 	
 	
 		
 	    Message msg = createMessage(LOGIN,getpid(), "L");
-		sprintf(msg.msg_text, "%d", ClientKey);
+		sprintf(msg.msg_text, "%s", ClientKey);
 		int sessionID;
 		
-		if (msgsnd(queue_descriptor, &msg, MSG_SIZE, 0) == -1){
+		
+		if (mq_send(queue_descriptor,  (char*) &msg, MSG_SIZE, 1) == -1){
 			 printError("Client: LOGIN request failed\n");	 
 		}
-		 if (msgrcv(queue_Client, &msg, MSG_SIZE, 0, 0) == -1) 
+		 if (mq_receive(queue_Client, (char*)  &msg, MSG_SIZE, NULL) == -1) 
 			printError("Client: catching LOGIN response failed\n");
 		if (sscanf(msg.msg_text, "%d", &sessionID) < 1)
 			printError("Client: Storing message failed\n");
@@ -55,15 +51,16 @@ void addingClientToServer(key_t ClientKey){
 			printError("Client: Server has a maximum Clients\n");
 		}
 		if(msg.msg_type == LOGIN){
-		 printf("Client: Client registered. Session no: %d\n", sessionID);
+		 printf("Client: Client registered. Session id: %d\n", sessionID);
 		}
+
 }
 
-void timeSender(key_t ClientKey){
+void timeSender(char* ClientKey){
 	Message msg = createMessage(TIME,getpid(),"Time not found");
-	if(msgsnd(queue_descriptor, &msg, MSG_SIZE, 0) == -1)
+	if(mq_send(queue_descriptor, (char*) &msg, MSG_SIZE, 1) == -1)
          printError("Client: Sender failed");
-    if(msgrcv(queue_Client, &msg, MSG_SIZE, 0, 0) == -1)
+    if(mq_receive(queue_Client, (char*) &msg, MSG_SIZE, NULL) == -1)
          printError("Client: Fetching time failed");
     
 	printf("%s\n", msg.msg_text);
@@ -83,10 +80,30 @@ void deleteQueue(int var){
 			break;
 		}
 	 Message msg = createMessage(type,getpid(), "dQ");
-	if(msgsnd(queue_descriptor, &msg, MSG_SIZE, 0) == -1)
+	if(mq_send(queue_descriptor, (char*) &msg, MSG_SIZE, 1) == -1)
          printf("Client: Sender failed");
 	//msgctl(queue_Client, IPC_RMID, NULL);
 	exit(1);
+}
+void close_queue(){
+		char ClientKey[25];
+		sprintf(ClientKey, "/%d",33);
+	
+		if (mq_close(queue_descriptor) == -1) {
+            printf("Client: Error with server queue [CLOSE]!\n");
+        } 
+
+        if (mq_close(queue_Client) == -1) {
+            printf("Client: Error with Client queue [CLOSE]!\n");
+        } 
+        if (mq_unlink(ClientKey) == -1) {
+            printf("Client: Error with Client queue[UNLINK]!\n");
+        } 
+	
+	
+	
+	
+
 }
 void endSender(){
 	deleteQueue(2);
@@ -95,25 +112,30 @@ void close_singal(int signum){
 	deleteQueue(1);
 }
 int main(){
-		srand(time(0)); 
+		
 		//usuwa kolejke gdy zakonczy sie program
 		atexit(close_queue);
 		signal(SIGINT, close_singal);
 		
-		char* path = getenv("HOME");
-		int key = ftok(path, PROJECT_ID);
-		queue_descriptor = msgget(key, 0);
+		
+		queue_descriptor = mq_open("/pipe", O_WRONLY);
 		if(queue_descriptor == -1){
 			printError("Error with queue");
 		}
-		printf("%s", path);
+		
+		struct mq_attr attr;
+		attr.mq_maxmsg = 9;
+		attr.mq_msgsize = MSG_SIZE;
 		
 		//Tworzenie kolejki klienta
-		int data = rand();
-		printf("%d", data);
-		key_t ClientKey = ftok(path,rand() ); 
-		queue_Client = msgget(ClientKey, 0666 | IPC_CREAT); 
-		
+		char ClientKey[25];
+		sprintf(ClientKey, "/pipeClient%d",getpid());
+		//ClientKey[7] = "\0";
+		printf("%s", ClientKey);
+		queue_Client = mq_open(ClientKey, O_RDONLY | O_CREAT | O_EXCL, 0666, &attr); 
+		if(queue_Client == -1){
+				printf("Something goes bad with queue_Client");
+		}
 		char fromUser[20];
 		//dodanie kolejki do serwera
 		addingClientToServer(ClientKey);
