@@ -6,13 +6,13 @@
 #define PROJECTPATH getenv("HOME")
 #define MAX_CONT_SIZE 4096
 
-typedef enum State {
+enum State {
     SLEEP = 1, SHAVE = 2, AWAKEN = 3, IDLE = 4,
-} state;
-typedef enum Client {
+};
+enum Client {
     INVITED = 1, FINISHED = 2, WAITING = 3, 
 };
-typedef struct BarberSem {
+struct BarberSem {
     enum State state;
 	//licznik semafora
 	int countClients;
@@ -26,18 +26,30 @@ void takeSem(int idSem) {
 	request.sem_op = -1;
 	request.sem_flg = 0;
 
-    if (semop(idSem, &semaphore_request, 1)) // 1 goes for one operation
+    if (semop(idSem, &request, 1)) // 1 goes for one operation
+		printf("Error");
       //  FAIL("Could not update semaphore\n");
 }
 
 void giveSem(int idSem) {
-    struct sembuf semaphore_request;
+    struct sembuf request;
     request.sem_num = 0;
 	request.sem_op = 1;
     request.sem_flg = 0;
 
-    if (semop(idSem, &semaphore_request, 1)) // 1 goes for one operation
+    if (semop(idSem, &request, 1)) // 1 goes for one operatio
+			printf("Error");
       //  FAIL("Could not update semaphore\n");
+}
+char* currentTime(){
+		time_t rawtime;
+		struct tm * timeinfo;
+	
+		time ( &rawtime );
+		timeinfo = localtime ( &rawtime );
+	// printf ( "Current local time and date: %s", asctime (timeinfo) );
+	return asctime(timeinfo);
+	
 }
 int isQueueEmpty(){
 	if(BarberSem->countClients > 0)
@@ -54,11 +66,13 @@ int isQueueFull(){
 void exitFromQueue(){
 	
 	//BarberSem->currentClient = queueClients[0];
-	for(int i =0; i < countClients; i++){
-		queueClients[i] = queueClients[i+1];
+	for(int i =0; i < BarberSem->countClients; i++){
+		BarberSem->queueClients[i] = BarberSem->queueClients[i+1];
 		
 	}
-	queueClients[countClients] = -1;
+	BarberSem->queueClients[BarberSem->countClients] = -1;
+	if(BarberSem->countClients > 0)
+	BarberSem->countClients--;
 	
 }
 #endif
