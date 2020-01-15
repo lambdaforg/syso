@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include<unistd.h>
 #include<pthread.h>
+#include <limits.h>
+#include <string.h>
+#include <signal.h>
 /*https://stackoverflow.com/questions/55937128/everytime-works-last-consumer-producer-consumer-problem-in-c
 https://github.com/Malenczuk/SysOpy/blob/master/MalenczukMarcin/cw09/zad1/main.c
 https://riptutorial.com/pthreads/example/26906/producer---consumer-example
