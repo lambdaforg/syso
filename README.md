@@ -1,3 +1,3 @@
-# syso
+# sysopy AGH ;)
 
 BADZIEWIE
